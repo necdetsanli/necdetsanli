@@ -1,25 +1,11 @@
-#!/usr/bin/env python3
-"""
-Generate a neofetch-like SVG card (dark/light) for GitHub profile README.
-
-Dynamic:
-- repos owned, contributed repos, stars owned
-- commits authored by the user (scanned + cached)
-- LOC (add/del/net) authored by the user (scanned + cached)
-- followers
-
-Static (as requested):
-- Status: Running (stable)
-- Tools / Hobbies
-- Contact: timezone, email, website, LinkedIn
-"""
-
 from __future__ import annotations
 
+import base64
 import hashlib
 import html
 import json
 import os
+import textwrap
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
@@ -107,6 +93,33 @@ def save_cache(cache_path: str, cache_obj: Dict[str, Any]) -> None:
     os.replace(tmp, cache_path)
 
 
+def png_to_data_uri(png_path: str) -> str:
+    with open(png_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
+
+
+def make_sep(title: str, total_chars: int = 78, fill: str = "*") -> str:
+    prefix = f"{title} "
+    n = max(1, total_chars - len(prefix))
+    return prefix + (fill * n)
+
+
+def wrap_kv_lines(label: str, value: str, max_value_chars: int) -> list[Dict[str, Any]]:
+    parts = textwrap.wrap(
+        value,
+        width=max_value_chars,
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+    if not parts:
+        return [{"type": "text", "label": label, "valuePlain": ""}]
+    out: list[Dict[str, Any]] = [{"type": "text", "label": label, "valuePlain": parts[0]}]
+    for p in parts[1:]:
+        out.append({"type": "cont", "valuePlain": p})
+    return out
+
+
 def fetch_user_id_and_followers(token: str, login: str) -> Tuple[str, int]:
     query = """
     query($login: String!){
@@ -133,15 +146,13 @@ def fetch_contributed_repo_count(token: str, login: str) -> int:
     return int(data["user"]["repositoriesContributedTo"]["totalCount"])
 
 
-def fetch_owned_repos_with_stars_and_commit_total(token: str, login: str) -> Tuple[int, int, Dict[str, int]]:
-    """
-    Returns:
-    - owned repo totalCount
-    - total stars across owned repos
-    - mapping: nameWithOwner -> default branch commit history totalCount (0 if empty)
-    """
+def fetch_owned_repos_with_stars_and_my_commit_total(
+    token: str,
+    login: str,
+    author_id: str,
+) -> Tuple[int, int, Dict[str, int]]:
     query = """
-    query($login: String!, $cursor: String) {
+    query($login: String!, $cursor: String, $author_id: ID!) {
       user(login: $login) {
         repositories(first: 60, after: $cursor, ownerAffiliations: [OWNER]) {
           totalCount
@@ -151,7 +162,7 @@ def fetch_owned_repos_with_stars_and_commit_total(token: str, login: str) -> Tup
             defaultBranchRef {
               target {
                 ... on Commit {
-                  history { totalCount }
+                  history(author: { id: $author_id }) { totalCount }
                 }
               }
             }
@@ -164,26 +175,30 @@ def fetch_owned_repos_with_stars_and_commit_total(token: str, login: str) -> Tup
     cursor: Optional[str] = None
     owned_total = 0
     stars_total = 0
-    repo_commit_totals: Dict[str, int] = {}
+    my_commit_totals: Dict[str, int] = {}
 
     while True:
-        data = gh_graphql(token, query, {"login": login, "cursor": cursor})
+        data = gh_graphql(token, query, {"login": login, "cursor": cursor, "author_id": author_id})
         repos = data["user"]["repositories"]
         owned_total = int(repos["totalCount"])
 
         nodes = repos.get("nodes") or []
         for n in nodes:
-            name = str(n["nameWithOwner"])
+            full_name = str(n["nameWithOwner"])
             stars_total += int(n["stargazerCount"])
             default_ref = n.get("defaultBranchRef")
             if default_ref is None:
-                repo_commit_totals[name] = 0
+                my_commit_totals[full_name] = 0
                 continue
             target = default_ref.get("target")
-            if target is None or "history" not in target or target["history"] is None:
-                repo_commit_totals[name] = 0
+            if target is None:
+                my_commit_totals[full_name] = 0
                 continue
-            repo_commit_totals[name] = int(target["history"]["totalCount"])
+            history = target.get("history")
+            if history is None:
+                my_commit_totals[full_name] = 0
+                continue
+            my_commit_totals[full_name] = int(history["totalCount"])
 
         page = repos["pageInfo"]
         if page["hasNextPage"] is True and page["endCursor"]:
@@ -191,7 +206,7 @@ def fetch_owned_repos_with_stars_and_commit_total(token: str, login: str) -> Tup
             continue
         break
 
-    return owned_total, stars_total, repo_commit_totals
+    return owned_total, stars_total, my_commit_totals
 
 
 def scan_repo_history_for_user_loc(
@@ -200,9 +215,6 @@ def scan_repo_history_for_user_loc(
     name: str,
     user_id: str,
 ) -> Tuple[int, int, int]:
-    """
-    Returns: (my_commits, additions, deletions) for commits authored by the user only.
-    """
     query = """
     query($owner: String!, $name: String!, $cursor: String, $author_id: ID!) {
       repository(owner: $owner, name: $name) {
@@ -210,9 +222,7 @@ def scan_repo_history_for_user_loc(
           target {
             ... on Commit {
               history(first: 100, after: $cursor, author: { id: $author_id }) {
-                edges {
-                  node { additions deletions }
-                }
+                edges { node { additions deletions } }
                 pageInfo { hasNextPage endCursor }
               }
             }
@@ -228,20 +238,14 @@ def scan_repo_history_for_user_loc(
     deletions = 0
 
     while True:
-        data = gh_graphql(
-            token,
-            query,
-            {"owner": owner, "name": name, "cursor": cursor, "author_id": user_id},
-        )
+        data = gh_graphql(token, query, {"owner": owner, "name": name, "cursor": cursor, "author_id": user_id})
         repo = data["repository"]
         default_ref = repo.get("defaultBranchRef")
         if default_ref is None:
             return 0, 0, 0
-
         target = default_ref.get("target")
         if target is None:
             return 0, 0, 0
-
         history = target.get("history")
         if history is None:
             return 0, 0, 0
@@ -262,86 +266,97 @@ def scan_repo_history_for_user_loc(
     return my_commits, additions, deletions
 
 
-def build_line_segments(label: str, value_plain: str, label_pad: int) -> Tuple[str, str]:
-    """
-    Returns: (left, value) as plain strings. No dots.
-    Left side is padded with spaces so values align nicely.
-    """
-    left = f"· {label}:"
-    left = left.ljust(label_pad)
-    return left + " ", value_plain
-
-
-
-def render_svg(lines: list[Dict[str, Any]], theme: Theme) -> str:
-    """
-    lines: list of dicts representing a single rendered line.
-      Supported types:
-        - {"type":"text", "label":..., "value":..., "valueSegments":[("text","class"), ...] optional}
-        - {"type":"sep", "text":"- Contact -----------------------------------"}
-        - {"type":"blank"}
-    """
-    label_pad = 0
-    for line in lines:
-        if line.get("type") == "text":
-            label_pad = max(label_pad, len(f"· {line['label']}:"))
-            label_pad += 2  # a little spacing before value
+def render_svg(
+    lines: list[Dict[str, Any]],
+    theme: Theme,
+    avatar_data_uri: str,
+    avatar_w: int,
+    avatar_h: int,
+) -> str:
     font_size = 14
     line_height = 20
     padding_x = 18
     padding_y = 18
-    width_px = 700
-    height_px = padding_y * 2 + line_height * (len(lines) + 1)
+    gap = 26
+    text_area_w = 720
+
+    text_x = padding_x + avatar_w + gap
+
+    label_pad = 0
+    for line in lines:
+        if line.get("type") == "text":
+            label_pad = max(label_pad, len(f"· {line['label']}:"))
+    label_pad += 2
 
     def esc(s: str) -> str:
         return html.escape(s)
 
+    def build_left(label: str) -> str:
+        left = f"· {label}:"
+        return left.ljust(label_pad) + " "
+
+    card_w = padding_x * 2 + avatar_w + gap + text_area_w
+    text_h = padding_y * 2 + line_height * (len(lines) + 1)
+    card_h = max(text_h, padding_y * 2 + avatar_h)
+
     tspans: list[str] = []
     y0 = padding_y + font_size
-
     current_y = y0
-    for i, line in enumerate(lines):
-        tspan_parts: list[str] = []
 
+    for line in lines:
         if line["type"] == "blank":
             current_y += line_height
             continue
 
+        tspan_parts: list[str] = []
+
         if line["type"] == "sep":
             tspan_parts.append(f'<tspan class="text">{esc(line["text"])}</tspan>')
+
+        elif line["type"] == "cont":
+            indent = " " * (label_pad + 1)
+            tspan_parts.append(f'<tspan class="key">{esc(indent)}</tspan>')
+            tspan_parts.append(f'<tspan class="value">{esc(line["valuePlain"])}</tspan>')
+
         elif line["type"] == "text":
-            left, value_plain = build_line_segments(line["label"], line["valuePlain"], label_pad)
-
-            tspan_parts.append(f'<tspan class="key">{esc(left)}</tspan>')
-
-            # value can be segmented for coloring (Status green dot)
+            tspan_parts.append(f'<tspan class="key">{esc(build_left(line["label"]))}</tspan>')
             segs = line.get("valueSegments")
             if isinstance(segs, list) and len(segs) > 0:
                 for seg_text, seg_class in segs:
                     tspan_parts.append(f'<tspan class="{esc(seg_class)}">{esc(seg_text)}</tspan>')
             else:
-                tspan_parts.append(f'<tspan class="value">{esc(value_plain)}</tspan>')
+                tspan_parts.append(f'<tspan class="value">{esc(line["valuePlain"])}</tspan>')
+
         else:
             raise RuntimeError(f"Unknown line type: {line['type']}")
 
-        joined = "".join(tspan_parts)
-        tspans.append(f'<tspan x="{padding_x}" y="{current_y}">{joined}</tspan>')
+        tspans.append(f'<tspan x="{text_x}" y="{current_y}">{"".join(tspan_parts)}</tspan>')
         current_y += line_height
 
     style = f"""
     <style>
-      text {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: {font_size}px; }}
+      text {{
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: {font_size}px;
+      }}
       .text {{ fill: {theme.text}; }}
       .key {{ fill: {theme.key}; }}
       .value {{ fill: {theme.value}; }}
-      .dots {{ fill: {theme.dots}; }}
       .green {{ fill: {theme.green}; }}
     </style>
     """
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width_px}" height="{height_px}" viewBox="0 0 {width_px} {height_px}">
+    clip_id = "avatarClip"
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{card_w}" height="{card_h}" viewBox="0 0 {card_w} {card_h}">
   {style}
-  <rect x="1" y="1" width="{width_px - 2}" height="{height_px - 2}" rx="16" fill="{theme.bg}" stroke="{theme.border}" />
+  <rect x="1" y="1" width="{card_w - 2}" height="{card_h - 2}" rx="16" fill="{theme.bg}" stroke="{theme.border}" />
+  <defs>
+    <clipPath id="{clip_id}">
+      <rect x="{padding_x}" y="{padding_y}" width="{avatar_w}" height="{avatar_h}" rx="14" />
+    </clipPath>
+  </defs>
+  <image href="{avatar_data_uri}" x="{padding_x}" y="{padding_y}" width="{avatar_w}" height="{avatar_h}" clip-path="url(#{clip_id})" />
   <text xml:space="preserve">
     {''.join(tspans)}
   </text>
@@ -367,22 +382,21 @@ def main() -> None:
     user_id, followers = fetch_user_id_and_followers(token, login)
     contributed = fetch_contributed_repo_count(token, login)
 
-    owned_total, stars_total, repo_commit_totals = fetch_owned_repos_with_stars_and_commit_total(token, login)
+    owned_total, stars_total, repo_my_commit_totals = fetch_owned_repos_with_stars_and_my_commit_total(token, login, user_id)
 
-    # Scan commits/LOC for owned repos (cached per repo by commit_total)
     repos_cache: Dict[str, Any] = cache_obj["repos"]
 
     total_my_commits = 0
     total_add = 0
     total_del = 0
 
-    for full_name, commit_total in repo_commit_totals.items():
+    for full_name, my_commit_total in repo_my_commit_totals.items():
         cached = repos_cache.get(full_name)
-        if not isinstance(cached, dict) or int(cached.get("commit_total", -1)) != int(commit_total):
+        if not isinstance(cached, dict) or int(cached.get("my_commit_total", -1)) != int(my_commit_total):
             owner, repo_name = full_name.split("/", 1)
             my_commits, adds, dels = scan_repo_history_for_user_loc(token, owner, repo_name, user_id)
             repos_cache[full_name] = {
-                "commit_total": int(commit_total),
+                "my_commit_total": int(my_commit_total),
                 "my_commits": int(my_commits),
                 "add": int(adds),
                 "del": int(dels),
@@ -392,9 +406,8 @@ def main() -> None:
         total_add += int(repos_cache[full_name].get("add", 0))
         total_del += int(repos_cache[full_name].get("del", 0))
 
-    # Cleanup cache entries for repos that no longer exist
     for key in list(repos_cache.keys()):
-        if key not in repo_commit_totals:
+        if key not in repo_my_commit_totals:
             del repos_cache[key]
 
     cache_obj["repos"] = repos_cache
@@ -403,29 +416,24 @@ def main() -> None:
 
     total_net = total_add - total_del
 
-    # ---- Static content (your requirements) ----
     operating_systems = "Linux, Windows, macOS"
     progamming_languages = "C, C++, Python, Java, C#, JavaScript, TypeScript, Bash, PowerShell"
     other_languages = "HTML, CSS, SQL, YAML, JSON, XML"
     natural_languages = "Turkish (native), English (fluent), German (basic)"
-    status_plain = "● Running (stable)"
     tools = "Docker, Kubernetes, Terraform, Grafana, Prometheus, Loki, Ansible, Jenkins, Helm, Kustomize, HAproxy, Keepalived, NGINX, Wireshark, Postman"
-    hobbies = (
-        "exploring new places and discovering new flavors, reading books, writing poetry, "
-        "working out / staying active, scuba diving, fishing, painting / drawing, making music, "
-        "watching films and documentaries, camping"
-    )
+    hobbies = "Exploring new places and discovering new flavors, Reading books, Writing poetry, Working out / Staying active, Scuba diving, Fishing, Painting / Drawing, Making music, Watching films and documentaries, Camping"
     timezone = "TRT (UTC+3)"
     email = "me@necdetsanli.com"
     website = "necdetsanli.com"
     linkedin = "linkedin.com/in/necdetsanli"
-    # -------------------------------------------
 
-    header = f"github@{login} --------------------------------------------------"
+    header = make_sep(f"github@{login}", 78, "*")
 
     stats_line_1 = f"{format_int(owned_total)} {{Contributed: {format_int(contributed)}}} | Stars: {format_int(stars_total)}"
     stats_line_2 = f"{format_int(total_my_commits)} | Followers: {format_int(followers)}"
     stats_line_3 = f"{format_int(total_net)} ( {format_int(total_add)}++, {format_int(total_del)}-- )"
+
+    max_value_chars = 66
 
     lines = [
         {"type": "sep", "text": header},
@@ -433,33 +441,37 @@ def main() -> None:
         {
             "type": "text",
             "label": "Status",
-            "valuePlain": status_plain,
+            "valuePlain": "● Running (stable)",
             "valueSegments": [("●", "green"), (" ", "text"), ("Running (stable)", "value")],
         },
-        {"type": "text", "label": "Operating Systems", "valuePlain": operating_systems},
-        {"type": "text", "label": "Programming Languages", "valuePlain": progamming_languages},
-        {"type": "text", "label": "Other Languages", "valuePlain": other_languages},
-        {"type": "text", "label": "Tools", "valuePlain": tools},
-        {"type": "text", "label": "Natural Languages", "valuePlain": natural_languages},
-        {"type": "text", "label": "Hobbies", "valuePlain": hobbies},
+        *wrap_kv_lines("Operating Systems", operating_systems, max_value_chars),
+        *wrap_kv_lines("Programming Languages", progamming_languages, max_value_chars),
+        *wrap_kv_lines("Other Languages", other_languages, max_value_chars),
+        *wrap_kv_lines("Tools", tools, max_value_chars),
+        *wrap_kv_lines("Natural Languages", natural_languages, max_value_chars),
+        *wrap_kv_lines("Hobbies", hobbies, max_value_chars),
         {"type": "blank"},
-        {"type": "sep", "text": "- Contact -------------------------------------------------------"},
+        {"type": "sep", "text": make_sep("* Contact", 78, "*")},
         {"type": "text", "label": "Timezone", "valuePlain": timezone},
         {"type": "text", "label": "Email", "valuePlain": email},
         {"type": "text", "label": "Website", "valuePlain": website},
         {"type": "text", "label": "LinkedIn", "valuePlain": linkedin},
         {"type": "blank"},
-        {"type": "sep", "text": "- GitHub Stats ---------------------------------------------------"},
+        {"type": "sep", "text": make_sep("* GitHub Stats", 78, "*")},
         {"type": "text", "label": "Repos", "valuePlain": stats_line_1},
         {"type": "text", "label": "Commits", "valuePlain": stats_line_2},
         {"type": "text", "label": "Lines of Code", "valuePlain": stats_line_3},
     ]
 
+    avatar_data_uri = png_to_data_uri("assets/necdetsanli_transparent.png")
+    avatar_w = 360
+    avatar_h = 360
+
     os.makedirs("assets", exist_ok=True)
     with open("assets/stats_dark.svg", "w", encoding="utf-8") as f:
-        f.write(render_svg(lines, DARK))
+        f.write(render_svg(lines, DARK, avatar_data_uri, avatar_w, avatar_h))
     with open("assets/stats_light.svg", "w", encoding="utf-8") as f:
-        f.write(render_svg(lines, LIGHT))
+        f.write(render_svg(lines, LIGHT, avatar_data_uri, avatar_w, avatar_h))
 
 
 if __name__ == "__main__":
