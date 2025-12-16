@@ -360,11 +360,11 @@ def render_svg(lines: list[Dict[str, Any]], theme: Theme) -> str:
 
 
 def main() -> None:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("GH_TOKEN")
     login = os.environ.get("GH_USER")
 
     if token is None or token.strip() == "":
-        raise RuntimeError("Missing GITHUB_TOKEN.")
+        raise RuntimeError("Missing GH_TOKEN.")
     if login is None or login.strip() == "":
         raise RuntimeError("Missing GH_USER.")
 
