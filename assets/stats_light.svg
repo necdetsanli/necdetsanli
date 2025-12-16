@@ -1,23 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="324" viewBox="0 0 640 324">
-  <rect x="1" y="1" width="638" height="322" rx="16" fill="#ffffff" stroke="#d0d7de" />
-  <text xml:space="preserve"
-        style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-               font-size: 14px;
-               fill: #24292f;">
-      <tspan x="18" y="32">necdetsanli --------------------------------------------------</tspan>
-      <tspan x="18" dy="18"></tspan>
-      <tspan x="18" dy="18">OS: ................................... Windows, Linux</tspan>
-      <tspan x="18" dy="18">IDE: ......................................... VS Code</tspan>
-      <tspan x="18" dy="18"></tspan>
-      <tspan x="18" dy="18">Langs (prog): . C, C++, TypeScript, Python, Java, C#, Bash</tspan>
-      <tspan x="18" dy="18">Langs (other): ........................ HTML, CSS, SQL</tspan>
-      <tspan x="18" dy="18">Langs (human): ...................... Turkish, English</tspan>
-      <tspan x="18" dy="18"></tspan>
-      <tspan x="18" dy="18">GitHub Stats ------------------------------------------</tspan>
-      <tspan x="18" dy="18">Repos (owned): .................................... 15</tspan>
-      <tspan x="18" dy="18">Stars (owned): .................................... 54</tspan>
-      <tspan x="18" dy="18">Followers: ........................................ 10</tspan>
-      <tspan x="18" dy="18">Contrib (YTD): ................................... 285</tspan>
-      <tspan x="18" dy="18">Contrib repos: ..................................... 6</tspan>
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="456" viewBox="0 0 700 456">
+  
+    <style>
+      text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 14px; }
+      .text { fill: #24292f; }
+      .key { fill: #8250df; }
+      .value { fill: #0969da; }
+      .dots { fill: #57606a; }
+      .green { fill: #1a7f37; }
+    </style>
+    
+  <rect x="1" y="1" width="698" height="454" rx="16" fill="#ffffff" stroke="#d0d7de" />
+  <text xml:space="preserve">
+    <tspan x="18" y="32"><tspan class="text">github@necdetsanli --------------------------------------------------</tspan></tspan><tspan x="18" y="72"><tspan class="key">· Status: </tspan><tspan class="dots">......................................... </tspan><tspan class="green">●</tspan><tspan class="text"> </tspan><tspan class="value">Running (stable)</tspan></tspan><tspan x="18" y="92"><tspan class="key">· Operating Systems: </tspan><tspan class="dots">........................... </tspan><tspan class="value">Linux, Windows, macOS</tspan></tspan><tspan x="18" y="112"><tspan class="key">· Programming Languages: </tspan><tspan class="dots">. </tspan><tspan class="value">C, C++, Python, Java, C#, JavaScript, TypeScript, Bash, PowerShell</tspan></tspan><tspan x="18" y="132"><tspan class="key">· Other Languages: </tspan><tspan class="dots">................... </tspan><tspan class="value">HTML, CSS, SQL, YAML, JSON, XML</tspan></tspan><tspan x="18" y="152"><tspan class="key">· Tools: </tspan><tspan class="dots">. </tspan><tspan class="value">Docker, Kubernetes, Terraform, Grafana, Prometheus, Loki, Ansible, Jenkins, Helm, Kustomize, HAproxy, Keepalived, NGINX, Wireshark, Postman</tspan></tspan><tspan x="18" y="172"><tspan class="key">· Natural Languages: </tspan><tspan class="dots">. </tspan><tspan class="value">Turkish (native), English (fluent), German (basic)</tspan></tspan><tspan x="18" y="192"><tspan class="key">· Hobbies: </tspan><tspan class="dots">. </tspan><tspan class="value">exploring new places and discovering new flavors, reading books, writing poetry, working out / staying active, scuba diving, fishing, painting / drawing, making music, watching films and documentaries, camping</tspan></tspan><tspan x="18" y="232"><tspan class="text">- Contact -------------------------------------------------------</tspan></tspan><tspan x="18" y="252"><tspan class="key">· Timezone: </tspan><tspan class="dots">.............................................. </tspan><tspan class="value">TRT (UTC+3)</tspan></tspan><tspan x="18" y="272"><tspan class="key">· Email: </tspan><tspan class="dots">.......................................... </tspan><tspan class="value">me@necdetsanli.com</tspan></tspan><tspan x="18" y="292"><tspan class="key">· Website: </tspan><tspan class="dots">........................................... </tspan><tspan class="value">necdetsanli.com</tspan></tspan><tspan x="18" y="312"><tspan class="key">· LinkedIn: </tspan><tspan class="dots">.............................. </tspan><tspan class="value">linkedin.com/in/necdetsanli</tspan></tspan><tspan x="18" y="352"><tspan class="text">- GitHub Stats ---------------------------------------------------</tspan></tspan><tspan x="18" y="372"><tspan class="key">· Repos: </tspan><tspan class="dots">............................. </tspan><tspan class="value">15 {Contributed: 6} | Stars: 54</tspan></tspan><tspan x="18" y="392"><tspan class="key">· Commits: </tspan><tspan class="dots">....................................... </tspan><tspan class="value">246 | Followers: 10</tspan></tspan><tspan x="18" y="412"><tspan class="key">· Lines of Code: </tspan><tspan class="dots">.................... </tspan><tspan class="value">103,806 ( 243,828++, 140,022-- )</tspan></tspan>
   </text>
 </svg>
