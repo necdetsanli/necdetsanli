@@ -1,7 +1,7 @@
 <table>
   <tr>
     <td valign="top">
-      <img src="assets/necdetsanli.png" alt="ascii" width="360" />
+      <img src="assets/necdetsanli.svg" alt="ascii" width="360" />
     </td>
     <td valign="top">
       <picture>

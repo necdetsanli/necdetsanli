@@ -262,19 +262,15 @@ def scan_repo_history_for_user_loc(
     return my_commits, additions, deletions
 
 
-def build_line_segments(
-    label: str,
-    value_plain: str,
-    line_width_chars: int = 70,
-) -> Tuple[str, str, str]:
+def build_line_segments(label: str, value_plain: str, label_pad: int) -> Tuple[str, str]:
     """
-    Returns: (left, dots, value) as plain strings. Colors applied in SVG.
+    Returns: (left, value) as plain strings. No dots.
+    Left side is padded with spaces so values align nicely.
     """
-    prefix = "· "
-    left = f"{prefix}{label}: "
-    dots_len = max(1, line_width_chars - len(left) - len(value_plain) - 1)
-    dots = "." * dots_len + " "
-    return left, dots, value_plain
+    left = f"· {label}:"
+    left = left.ljust(label_pad)
+    return left + " ", value_plain
+
 
 
 def render_svg(lines: list[Dict[str, Any]], theme: Theme) -> str:
@@ -285,6 +281,11 @@ def render_svg(lines: list[Dict[str, Any]], theme: Theme) -> str:
         - {"type":"sep", "text":"- Contact -----------------------------------"}
         - {"type":"blank"}
     """
+    label_pad = 0
+    for line in lines:
+        if line.get("type") == "text":
+            label_pad = max(label_pad, len(f"· {line['label']}:"))
+            label_pad += 2  # a little spacing before value
     font_size = 14
     line_height = 20
     padding_x = 18
@@ -309,10 +310,9 @@ def render_svg(lines: list[Dict[str, Any]], theme: Theme) -> str:
         if line["type"] == "sep":
             tspan_parts.append(f'<tspan class="text">{esc(line["text"])}</tspan>')
         elif line["type"] == "text":
-            left, dots, value_plain = build_line_segments(line["label"], line["valuePlain"])
+            left, value_plain = build_line_segments(line["label"], line["valuePlain"], label_pad)
 
             tspan_parts.append(f'<tspan class="key">{esc(left)}</tspan>')
-            tspan_parts.append(f'<tspan class="dots">{esc(dots)}</tspan>')
 
             # value can be segmented for coloring (Status green dot)
             segs = line.get("valueSegments")
