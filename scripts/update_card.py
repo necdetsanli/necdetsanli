@@ -201,21 +201,17 @@ def scan_repo_history_for_user_loc(
     user_id: str,
 ) -> Tuple[int, int, int]:
     """
-    Returns: (my_commits, additions, deletions) for *entire* default branch history.
+    Returns: (my_commits, additions, deletions) for commits authored by the user only.
     """
     query = """
-    query($owner: String!, $name: String!, $cursor: String) {
+    query($owner: String!, $name: String!, $cursor: String, $author_id: ID!) {
       repository(owner: $owner, name: $name) {
         defaultBranchRef {
           target {
             ... on Commit {
-              history(first: 100, after: $cursor) {
+              history(first: 100, after: $cursor, author: { id: $author_id }) {
                 edges {
-                  node {
-                    additions
-                    deletions
-                    author { user { id } }
-                  }
+                  node { additions deletions }
                 }
                 pageInfo { hasNextPage endCursor }
               }
@@ -231,11 +227,12 @@ def scan_repo_history_for_user_loc(
     additions = 0
     deletions = 0
 
-    # Small delay to be nicer to API and reduce anti-abuse chance
-    time.sleep(0.15)
-
     while True:
-        data = gh_graphql(token, query, {"owner": owner, "name": name, "cursor": cursor})
+        data = gh_graphql(
+            token,
+            query,
+            {"owner": owner, "name": name, "cursor": cursor, "author_id": user_id},
+        )
         repo = data["repository"]
         default_ref = repo.get("defaultBranchRef")
         if default_ref is None:
@@ -250,16 +247,9 @@ def scan_repo_history_for_user_loc(
             return 0, 0, 0
 
         edges = history.get("edges") or []
+        my_commits += len(edges)
         for e in edges:
             node = e["node"]
-            author = node.get("author") or {}
-            user = author.get("user")
-            if user is None:
-                continue
-            if str(user.get("id")) != user_id:
-                continue
-
-            my_commits += 1
             additions += int(node.get("additions", 0))
             deletions += int(node.get("deletions", 0))
 
