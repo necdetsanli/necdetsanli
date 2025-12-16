@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="324" viewBox="0 0 640 324">
+  <rect x="1" y="1" width="638" height="322" rx="16" fill="#ffffff" stroke="#d0d7de" />
+  <text xml:space="preserve"
+        style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+               font-size: 14px;
+               fill: #24292f;">
+      <tspan x="18" y="32">necdetsanli --------------------------------------------------</tspan>
+      <tspan x="18" dy="18"></tspan>
+      <tspan x="18" dy="18">OS: ................................... Windows, Linux</tspan>
+      <tspan x="18" dy="18">IDE: ......................................... VS Code</tspan>
+      <tspan x="18" dy="18"></tspan>
+      <tspan x="18" dy="18">Langs (prog): . C, C++, TypeScript, Python, Java, C#, Bash</tspan>
+      <tspan x="18" dy="18">Langs (other): ........................ HTML, CSS, SQL</tspan>
+      <tspan x="18" dy="18">Langs (human): ...................... Turkish, English</tspan>
+      <tspan x="18" dy="18"></tspan>
+      <tspan x="18" dy="18">GitHub Stats ------------------------------------------</tspan>
+      <tspan x="18" dy="18">Repos (owned): .................................... 15</tspan>
+      <tspan x="18" dy="18">Stars (owned): .................................... 54</tspan>
+      <tspan x="18" dy="18">Followers: ........................................ 10</tspan>
+      <tspan x="18" dy="18">Contrib (YTD): ................................... 285</tspan>
+      <tspan x="18" dy="18">Contrib repos: ..................................... 6</tspan>
+  </text>
+</svg>
