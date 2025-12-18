@@ -104,6 +104,9 @@ def make_sep(title: str, total_chars: int = 78, fill: str = "*") -> str:
     n = max(1, total_chars - len(prefix))
     return prefix + (fill * n)
 
+def sep_chars_for_text_area(text_area_w_px: int, font_size_px: int) -> int:
+    approx_char_px = font_size_px * 0.58
+    return int(text_area_w_px / approx_char_px) + 12
 
 def wrap_kv_lines(label: str, value: str, max_value_chars: int) -> list[Dict[str, Any]]:
     parts = textwrap.wrap(
@@ -368,6 +371,11 @@ def main() -> None:
     token = os.environ.get("GH_TOKEN")
     login = os.environ.get("GH_USER")
 
+    font_size = 14
+    text_area_w = 720
+
+    sep_chars = sep_chars_for_text_area(text_area_w, font_size)
+
     if token is None or token.strip() == "":
         raise RuntimeError("Missing GH_TOKEN.")
     if login is None or login.strip() == "":
@@ -427,7 +435,7 @@ def main() -> None:
     website = "necdetsanli.com"
     linkedin = "linkedin.com/in/necdetsanli"
 
-    header = make_sep(f"github@{login}", 78, "*")
+    header = make_sep(f"github@{login}", sep_chars, "*")
 
     stats_line_1 = f"{format_int(owned_total)} {{Contributed: {format_int(contributed)}}} | Stars: {format_int(stars_total)}"
     stats_line_2 = f"{format_int(total_my_commits)} | Followers: {format_int(followers)}"
@@ -451,13 +459,13 @@ def main() -> None:
         *wrap_kv_lines("Natural Languages", natural_languages, max_value_chars),
         *wrap_kv_lines("Hobbies", hobbies, max_value_chars),
         {"type": "blank"},
-        {"type": "sep", "text": make_sep("* Contact", 78, "*")},
+        {"type": "sep", "text": make_sep("* Contact", sep_chars, "*")},
         {"type": "text", "label": "Timezone", "valuePlain": timezone},
         {"type": "text", "label": "Email", "valuePlain": email},
         {"type": "text", "label": "Website", "valuePlain": website},
         {"type": "text", "label": "LinkedIn", "valuePlain": linkedin},
         {"type": "blank"},
-        {"type": "sep", "text": make_sep("* GitHub Stats", 78, "*")},
+        {"type": "sep", "text": make_sep("* GitHub Stats", sep_chars, "*")},
         {"type": "text", "label": "Repos", "valuePlain": stats_line_1},
         {"type": "text", "label": "Commits", "valuePlain": stats_line_2},
         {"type": "text", "label": "Lines of Code", "valuePlain": stats_line_3},
