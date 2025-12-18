@@ -463,7 +463,7 @@ def main() -> None:
         {"type": "text", "label": "Lines of Code", "valuePlain": stats_line_3},
     ]
 
-    avatar_data_uri = png_to_data_uri("assets/necdetsanli_transparent.png")
+    avatar_data_uri = png_to_data_uri("assets/necdetsanli.png")
     avatar_w = 360
     avatar_h = 360
 
